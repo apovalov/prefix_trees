@@ -54,85 +54,76 @@ class Trie:
     root: Node = field(default_factory=Node)
 
     def add_query(self, query: str, value: float) -> None:
-        """
-        Adds a single query string to the Trie.
-
-        Parameters
-        ----------
-        query : str
-            The string to be added to the Trie.
-        value : float
-            The value associated with the query.
-        """
-        ...
+        node = self.root
+        for char in query:
+            if char not in node.children:
+                node.children[char] = Node()
+            node = node.children[char]
+        node.is_end = True
+        node.value = value
 
     def remove_query(self, query: str) -> None:
-        """
-        Removes a single query string from the Trie.
+        def remove_recursively(node, query, depth):
+            if depth == len(query):
+                if not node.is_end:
+                    raise Exception(f"Query {query} not found!")
+                node.is_end = False
+                return len(node.children) == 0
 
-        Parameters
-        ----------
-        query : str
-            The string to be removed from the Trie.
+            char = query[depth]
+            if char not in node.children:
+                raise Exception(f"Query {query} not found!")
 
-        Raises
-        ------
-        Exception:
-            If the query is not found in the Trie.
+            should_delete_child_node = remove_recursively(node.children[char], query, depth + 1)
 
-        >>> raise Exception(f"Query {query} not found!")
-        """
-        ...
+            if should_delete_child_node:
+                del node.children[char]
+                return len(node.children) == 0
+
+            return False
+
+        remove_recursively(self.root, query, 0)
 
     def clear(self) -> None:
-        """Clears all the entries in the Trie."""
-        ...
+        self.root = Node()
 
-    def suffixes(
-        self,
-        prefix: str,
-    ) -> List[Tuple[float, str]]:
-        """
-        Returns all suffixes of the given prefix.
+    def suffixes(self, prefix: str) -> List[Tuple[float, str]]:
+        def find_node(node, prefix):
+            for char in prefix:
+                if char in node.children:
+                    node = node.children[char]
+                else:
+                    return None
+            return node
 
-        Notes
-        -----
-        Here by suffix we mean string prefix + suffix.
+        def collect_suffixes(node, prefix, results):
+            if node.is_end:
+                results.append((node.value, prefix))
+            for char, child_node in node.children.items():
+                collect_suffixes(child_node, prefix + char, results)
 
-        Parameters
-        ----------
-        prefix : str
-            The prefix string.
-
-        Returns
-        -------
-        List[Tuple[float, str]]
-            List of (value, suffix) pairs.
-
-        Examples
-        --------
-        Given queries: "apple", "app", "application", "triple"
-
-        >>> trie = Trie()
-        >>> trie.add_query("apple", 1.0)
-        >>> trie.add_query("app", 2.0)
-        >>> trie.add_query("application", 3.0)
-        >>> trie.add_query("triple", 4.0)
-        >>> trie.suffixes("app")
-        [(3.0, 'application'), (2.0, 'app'), (1.0, 'apple')]
-        """
-        ...
+        results = []
+        node = find_node(self.root, prefix)
+        if node:
+            collect_suffixes(node, prefix, results)
+        return results
 
     def count_queries(self) -> int:
-        """
-        Returns the number of queries stored in the Trie.
+        def count_nodes(node):
+            count = 1 if node.is_end else 0
+            for child in node.children.values():
+                count += count_nodes(child)
+            return count
 
-        Returns
-        -------
-        int
-            The number of queries stored in the Trie.
-        """
-        return 0
+        return count_nodes(self.root)
+
+    def print_trie(self, node=None, prefix=""):
+        if node is None:
+            node = self.root
+        if node.is_end:
+            print(f"String: {prefix}, Value: {node.value}")
+        for char, next_node in node.children.items():
+            self.print_trie(next_node, prefix + char)
 
 
 @dataclass
@@ -166,10 +157,13 @@ class ReversedTrie(Trie):
         --------
         Given queries: "apple", "triple"
 
-        >>> rtrie = ReversedTrie()
-        >>> rtrie.add_query("apple", 1.0)
+        # >>> rtrie = ReversedTrie()
+        # >>> rtrie.add_query("apple", 1.0)
         """
-        ...
+        # reversed_query = query[::-1]
+        # super().add_query(reversed_query, value)
+        for i in range(1, len(query) + 1):
+            super().add_query(query[:i][::-1], value)
 
     def prefixes(self, suffix: str) -> List[Tuple[float, str]]:
         """
@@ -191,15 +185,11 @@ class ReversedTrie(Trie):
 
         Examples
         --------
-        >>> rtrie = ReversedTrie()
-        >>> rtrie.add_query("apple", 1.0)
-        >>> ... # add more queries from apple
-        >>> rtrie.add_query("triple", 2.0)
-        >>> ... # add more queries from triple
-        >>> rtrie.prefixes("pl")
-        [(2.0, 'tripl'), (1.0, 'appl')] # "pl" is common
         """
-        ...
+        reversed_suffix = suffix[::-1]
+        suffixes = super().suffixes(reversed_suffix)
+
+        return [(value, prefix[::-1]) for value, prefix in suffixes]
 
 
 @dataclass
@@ -211,7 +201,6 @@ class Suggester:
     Notes
     -----
     Make sure that suggest_ methods return unique suggests Tuple.
-
 
     Attributes
     ----------
@@ -233,14 +222,16 @@ class Suggester:
         queries : Dict[str, float]
             A dictionary of query strings and their associated values.
         """
-        for q, v in queries.items():
-            # fit trie with preprocessed queries
-            ...
-
-            # fit reversed trie with preprocessed queries
-            # each query is used to fit the trie with all its ...
-            ...
-            ...
+        # for query, value in queries.items():
+        #     self.trie.add_query(query, value)
+        #
+        #     # Добавляем все префиксы в обратном порядке в ReversedTrie
+        #     for i in range(1, len(query) + 1):
+        #         reversed_prefix = query[:i] #[::-1]  # Берем префикс и разворачиваем его
+        #         self.reversed_trie.add_query(reversed_prefix, value)
+        for query, value in queries.items():
+            self.trie.add_query(query, value)
+            self.reversed_trie.add_query(query, value)
 
     def count_queries(self) -> int:
         """
@@ -275,18 +266,23 @@ class Suggester:
 
         Examples
         --------
-        >>> suggester = Suggester()
-        >>> suggester.fit({"apple": 1.0, "triple": 2.0})
-        >>> suggester.suggest_query("pl")
+        # >>> suggester = Suggester()
+        # >>> suggester.fit({"apple": 1.0, "triple": 2.0})
+        # >>> suggester.suggest_query("pl")
         [(1.0, 'apple'), (2.0, 'triple')]
         """
-        # normal trie suffixes
-        suggestions = self.trie.suffixes(query)
 
-        # reversed trie prefixes
-        ...
+        suggestions = []
 
-        suggestions = list(set(suggestions))
+        # Получаем предложения из основного Trie
+        suggestions.extend(self.trie.suffixes(query))
+
+        # Используем ReversedTrie для поиска префиксов, соответствующих суффиксу запроса
+        reversed_trie_prefixes = self.reversed_trie.prefixes(query)
+
+        # Для каждого префикса, найденного в ReversedTrie, ищем соответствующие строки в основном Trie
+        for _, prefix in reversed_trie_prefixes:
+            suggestions.extend(self.trie.suffixes(prefix))
 
         return suggestions
 
@@ -310,7 +306,9 @@ class Suggester:
         List[Tuple[float, str]]
             A list of suggested queries with their associated values.
         """
-        return []
+        if len(query) < 2:
+            return []
+        return self.suggest_query(query[:-1])
 
     def suggest_last_words(self, query: str) -> List[Tuple[float, str]]:
         """
@@ -334,7 +332,13 @@ class Suggester:
             + suggest_query("apple iphone")
             + suggest_query("apple")
         """
-        return []
+        words = query.split()
+        suggestions = set()
+        for i in range(len(words)):
+            sub_query = " ".join(words[i:])
+            suggestions.update(self.suggest_query(sub_query))
+        return sorted(suggestions, key=lambda x: -x[0])
+
 
     def suggest_each_word(self, query: str) -> List[Tuple[float, str]]:
         """
@@ -359,11 +363,13 @@ class Suggester:
             + suggest_query("iphone")
             + suggest_query("banana")
         """
-        return []
-
+        words = query.split()
+        suggestions = set()
+        for word in words:
+            suggestions.update(self.suggest_query(word))
+        return sorted(suggestions, key=lambda x: -x[0])
 
 suggester = Suggester()
-
 
 def preprocess_query(query: str) -> str:
     """
@@ -384,13 +390,12 @@ def preprocess_query(query: str) -> str:
 
     Examples
     --------
-    >>> preprocess_query("  HelLo,  ;  World!  ")
+    # >>> preprocess_query("  HelLo,  ;  World!  ")
     'hello world'
     """
-
-    ...
-
-    return query
+    query = re.sub(r'[^\w\s]', '', query)  # Удаляем пунктуацию
+    query = re.sub(r'\s+', ' ', query)    # Удаляем лишние пробелы
+    return query.strip().lower()
 
 
 def count_queries(file) -> Dict[str, float]:
@@ -417,14 +422,15 @@ def count_queries(file) -> Dict[str, float]:
         bana;na
         banana
         bananA
-    >>> with open("queries.txt", "r") as file:
-    >>>     count_queries(file)
+    # >>> with open("queries.txt", "r") as file:
+    # >>>     count_queries(file)
     {'apple 123': 2.0, 'banana': 3.0}
     """
     queries: Dict[str, float] = defaultdict(lambda: 0)
     rows = file.readlines()
-    for q in tqdm.tqdm(rows):
-        ...
+    for line in tqdm.tqdm(rows):
+        preprocessed_query = preprocess_query(line)
+        queries[preprocessed_query] += 1.0
     return queries
 
 
@@ -440,14 +446,9 @@ async def startup_event() -> None:
     # download the queries file
     print("Downloading queries file...")
     download_yandex_disk(QUERIES_URL, QUERIES_PATH)
-
-    # load the queries file
     with open(QUERIES_PATH, "r") as file:
         queries = count_queries(file)
-
-    # fit the suggester with the queries
-    ...
-
+    suggester.fit(queries)
     print(f"Suggester fitted with {suggester.count_queries()} queries!")
 
 
@@ -472,37 +473,30 @@ def suggest(query: str, k: int = 10):
 
     Examples
     --------
-    >>> suggestions("", k=10)
+    # >>> suggestions("", k=10)
     {"query": "", "suggestions": []}
-    >>> suggestions("HeL", k=3)
+    # >>> suggestions("HeL", k=3)
     {"query": "hel", "suggestions": ["hello world", "help", "helmet"]}
     """
-    ...
+
+    if query == "":
+        return {"query": "", "suggestions": []}
 
     query = preprocess_query(query)
+    suggestions = []
 
-    # suggestions = ["hello world", ...] -> suggestions = []
-    suggestions = ["hello world", "help", "helmet", "hello"]
+    # Накапливаем предложения
+    suggestions.extend(suggester.suggest_query(query))
+    suggestions.extend(suggester.suggest_removed_char(query))
+    if len(suggestions) < k:
+        suggestions.extend(suggester.suggest_last_words(query))
+        suggestions.extend(suggester.suggest_each_word(query))
 
-    # full query + substring search suggestions
-    ...
+    # Удаление дубликатов и сортировка
+    unique_suggestions = list(dict.fromkeys(suggestions))
+    sorted_unique_suggestions = sorted(unique_suggestions, key=lambda x: -x[0])[:k]
 
-    # remove the last character of the query and then suggest
-    ...
-
-    # only if there are less than unique k suggestions
-    if len(set(suggestions)) < k:
-        # N-last words suggestions
-        ...
-
-        # each word suggestions
-        ...
-
-    # sorting by value and taking top k
-    ...
-
-    return {"query": query, "suggestions": suggestions}
-
+    return {"query": query, "suggestions": [s[1] for s in sorted_unique_suggestions]}
 
 @app.get("/")
 def root(request: Request):
