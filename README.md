@@ -8,6 +8,7 @@ That's why a simple search (even if the queries are sorted, which would allow bi
 
 Well, welcome to the world of prefix trees!
 
+
 ## Prefix trees
 
 A prefix tree or simply Trie is a tree-like data structure used to store a dynamic set of strings (we will also call them queries). Each node represents a single character, and strings are formed by tracing a path from the root of the tree to a particular node. This allows us to quickly find all matching queries starting with a given prefix, without having to "search" the entire database.
@@ -21,7 +22,6 @@ In the Trie context, knowing the prefix of a word, it is possible to find all it
 This is accomplished by "descending" from the last character of the prefix down the tree. Thus, the prefix "ap" can lead us to the suffixes "i" or "ple" if both of these words are stored in the tree.
 
 ![Alt text](image.png)
-
 
 The main advantages of prefix trees:
 
@@ -46,6 +46,7 @@ At first glance, prefix trees look perfect for providing quick hints based on th
 
 A Reversed Trie is a prefix tree in which strings are added in reverse order. Thus, it allows you to efficiently find prefixes for a given suffix or, in other words, it improves substring search.
 
+
 ## Autocomplete Suggestions Formatting
 
 The formatting of autocomplete suggestions is a crucial aspect of the user experience and typically begins with a Trie or a Reversed Trie to generate the basic suggestions. However, to enhance the quality and relevance of these suggestions, additional techniques are employed.
@@ -55,15 +56,11 @@ The formatting of autocomplete suggestions is a crucial aspect of the user exper
 Here are some of the methods from our project's code that shape the user's search query:
 
 1. `suggest_query`: The primary method that generates suggestions based on the user's input.
-
 2. `suggest_removed_char`: A method that removes the last character from the query and provides suggestions for the modified query.
-
 3. `suggest_last_words`: This method offers suggestions based on the prefixes of the last words of the query.
-
 4. `suggest_each_word`: In this method, suggestions are regenerated for each word in the query independently.
 
 After applying these methods, a comprehensive list of potential suggestions is formed. All collected suggestions are sorted according to their relevance.
-
 In the end, the user is presented with the most suitable suggestion.
 
 
